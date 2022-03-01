@@ -61,6 +61,7 @@ export type InitializationOptions = {
   rootDir?: string;
   origin?: string;
   prefix?: string;
+  prefixDistDir?: boolean;
   lang?: string;
   server?: ServerOptions;
   build?: BuildOptions;
