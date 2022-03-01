@@ -19,6 +19,7 @@ function getConfig(initializationOptions: InitializationOptions = {}): SettingsO
   const config: SettingsOptions = defaultsDeep(initializationOptions, loadedConfig, getDefaultConfig());
 
   const serverPrefix = normalizePrefix(config.prefix || get(config, 'server.prefix', ''));
+  const prefixDistDir = get(config, 'prefixDistDir', true);
 
   const rootDir = config.rootDir === 'process.cwd()' ? process.cwd() : path.resolve(config.rootDir);
   config.rootDir = rootDir;
@@ -37,8 +38,8 @@ function getConfig(initializationOptions: InitializationOptions = {}): SettingsO
   config.server = serverPrefix ? { prefix: serverPrefix } : false;
 
   const ssrComponents = path.resolve(config.rootDir, './___ELDER___/compiled/');
-  const clientComponents = path.resolve(config.distDir, `.${serverPrefix}/_elderjs/svelte/`);
-  const distElder = path.resolve(config.distDir, `.${serverPrefix}/_elderjs/`);
+  const distElder = path.resolve(config.distDir, `.${prefixDistDir ? serverPrefix : ''}/_elderjs/`);
+  const clientComponents = path.resolve(distElder, `./svelte/`);
   fs.ensureDirSync(path.resolve(distElder));
   fs.ensureDirSync(path.resolve(clientComponents));
 
@@ -57,6 +58,7 @@ function getConfig(initializationOptions: InitializationOptions = {}): SettingsO
   };
 
   if (config.css === 'file' || config.css === 'lazy') {
+    // FIXME: why do we use ptah.sep here?
     const assetPath = path.resolve(distElder, `.${path.sep}assets`);
     fs.ensureDirSync(path.resolve(assetPath));
     const cssFiles = fs.readdirSync(assetPath).filter((f) => f.endsWith('.css'));
@@ -66,7 +68,7 @@ function getConfig(initializationOptions: InitializationOptions = {}): SettingsO
       );
     }
     if (cssFiles[0]) {
-      config.$$internal.publicCssFile = `${serverPrefix}/_elderjs/assets/${cssFiles[0]}`;
+      config.$$internal.publicCssFile = `${assetPath}/${cssFiles[0]}`;
     } else {
       console.error(`CSS file not found in ${assetPath}`);
     }

@@ -356,6 +356,31 @@ describe('#getConfig', () => {
       });
     });
 
+    it('sets a server with a prefix without prefixing dist dir', () => {
+      jest.mock('fs-extra', () => {
+        return {
+          ensureDirSync: () => {},
+          readdirSync: () => ['svelte-3449427d.css', 'svelte.css-0050caf1.map'],
+        };
+      });
+      const r = getConfig({ context: 'server', prefix: 'testing', prefixDistDir: false, rootDir: 't' });
+      expect(r).toStrictEqual(
+        expect.objectContaining({
+          ...common,
+          context: 'server',
+          server: {
+            prefix: '/testing',
+          },
+          prefix: '/testing',
+        }),
+      );
+      expect(r.$$internal).toMatchObject({
+        ...common$$Internal,
+        clientComponents: resolve(process.cwd(), `./t/public/_elderjs/svelte`),
+        distElder: resolve(process.cwd(), `./t/public/_elderjs`),
+      });
+    });
+
     it('sets build with default', () => {
       jest.mock('fs-extra', () => {
         return {
