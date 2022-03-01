@@ -421,7 +421,8 @@ describe('#getConfig', () => {
           $$internal: {
             ...output.$$internal,
             findComponent: expect.anything(),
-            publicCssFile: expect.stringContaining('svelte-3449427d.css'),
+            // NOTE: publicCssFile is a URL pathname
+            publicCssFile: expect.stringMatching('/_elderjs/assets/svelte-3449427d.css'),
           },
         }),
       );
