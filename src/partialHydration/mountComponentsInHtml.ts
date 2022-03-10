@@ -1,6 +1,6 @@
 import MagicString from 'magic-string';
-import { renderComponent as defaultRenderComponent } from '../utils/svelteComponent';
 import { parseTag, escapeHtml } from '../utils/htmlParser';
+import { renderComponent as defaultRenderComponent } from '../utils/renderComponent';
 
 function createClass(a, b) {
   const fullName = [a, b].filter(Boolean).join(' ');
@@ -55,14 +55,8 @@ export default function mountComponentsInHtml({
         element = options.element;
       }
       if (!innerHtml && closeImmediately && ssr) {
-        const result = renderComponent({ path: ssr, props });
-        if (result?.head) {
-          page.headStack.push({ source: name, priority: 50, string: result.head });
-        }
-        if (result?.css?.code && page.settings.css === 'inline' && options?.loading === 'none') {
-          page.svelteCss.push({ css: result.css.code, cssMap: result.css.map });
-        }
-        if (result?.html) {
+        const result = renderComponent({ path: ssr, props, page });
+        if (result.html) {
           innerHtml = mountComponentsInHtml({
             page,
             html: result.html,

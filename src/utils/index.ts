@@ -6,7 +6,6 @@ import parseBuildPerf from '../build/parseBuildPerf';
 import perf from './perf';
 import permalinks from './permalinks';
 
-import svelteComponent from './svelteComponent';
 import prepareRunHook from './prepareRunHook';
 import shuffleArray from './shuffleArray';
 import { prepareServer } from './prepareServer';
@@ -20,7 +19,6 @@ import prepareInlineShortcode from './prepareInlineShortcode';
 export {
   asyncForEach,
   capitalizeFirstLetter,
-  svelteComponent,
   getUniqueId,
   validateShortcode,
   Page,

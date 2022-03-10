@@ -7,7 +7,8 @@ import path from 'path';
 import toRegExp from 'regexparam';
 
 import { ShortcodeDefs } from '../shortcodes/types';
-import { validatePlugin, validateHook, svelteComponent, HookOptions, PluginOptions } from '..';
+import { validatePlugin, validateHook, HookOptions, PluginOptions } from '..';
+import component from '../utils/renderComponent';
 import { Elder } from '../Elder';
 import { RoutesOptions } from '../routes/types';
 import createReadOnlyProxy from '../utils/createReadOnlyProxy';
@@ -231,7 +232,7 @@ async function plugins(elder: Elder) {
               );
             }
 
-            plugin.routes[routeName].templateComponent = svelteComponent(
+            plugin.routes[routeName].templateComponent = component(
               templateName,
               usesNodeModulesFolder ? 'node_modules' : 'plugins',
             );
@@ -265,7 +266,7 @@ async function plugins(elder: Elder) {
                 `Plugin Route: ${routeName} added by plugin ${pluginName} has an error. No SSR svelte component found ${layoutName}. This may cause unexpected outcomes. If you believe this should be working, make sure rollup has run before this file is initialized. If the issue persists, please contact the plugin author. Expected location \`${ssrComponent}\``,
               );
             }
-            plugin.routes[routeName].layoutComponent = svelteComponent(
+            plugin.routes[routeName].layoutComponent = component(
               layoutName,
               usesNodeModulesFolder ? 'node_modules' : 'plugins',
             );
@@ -280,7 +281,7 @@ async function plugins(elder: Elder) {
               // eslint-disable-next-line no-continue
               continue;
             }
-            plugin.routes[routeName].layoutComponent = svelteComponent('Layout.svelte', 'layouts');
+            plugin.routes[routeName].layoutComponent = component('Layout.svelte', 'layouts');
           }
 
           // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -7,10 +7,10 @@ import kebabcase from 'lodash.kebabcase';
 import toRegExp from 'regexparam';
 import path from 'path';
 
-import { svelteComponent } from '../utils';
 import { SettingsOptions } from '../utils/types';
 import wrapPermalinkFn from '../utils/wrapPermalinkFn';
 import windowsPathFix from '../utils/windowsPathFix';
+import component from '../utils/renderComponent';
 import makeDynamicPermalinkFn from './makeDynamicPermalinkFn';
 
 const requireFile = (file: string) => {
@@ -143,8 +143,8 @@ function prepareRoutes(settings: SettingsOptions) {
         );
       }
 
-      routes[routeName].templateComponent = svelteComponent(routes[routeName].template, 'routes');
-      routes[routeName].layoutComponent = svelteComponent(routes[routeName].layout, 'layouts');
+      routes[routeName].templateComponent = component(routes[routeName].template, 'routes');
+      routes[routeName].layoutComponent = component(routes[routeName].layout, 'layouts');
     });
 
     return routes;

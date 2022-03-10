@@ -2,17 +2,15 @@ import { ShortcodeDefs } from './types';
 
 const shortcodes: ShortcodeDefs = [
   {
-    shortcode: 'svelteComponent',
+    shortcode: 'component',
     run: async ({ props, helpers }) => {
-      if (!props.name) throw new Error(`svelteComponent shortcode requires a name="" property.`);
+      if (!props.name) throw new Error(`component shortcode requires a name="" property.`);
 
       let parsedProps = {};
       try {
         parsedProps = JSON.parse(props.props);
       } catch {
-        console.error(
-          `Can't parse ${props.name} svelteComponent props=${props.props} to JSON. It needs to be serializable.`,
-        );
+        console.error(`Can't parse ${props.name} component props=${props.props} to JSON. It needs to be serializable.`);
       }
 
       let parsedOptions = {};
@@ -20,7 +18,7 @@ const shortcodes: ShortcodeDefs = [
         parsedOptions = JSON.parse(props.options);
       } catch {
         console.error(
-          `Can't parse ${props.name} svelteComponent options=${props.options} to JSON. It needs to be serializable.`,
+          `Can't parse ${props.name} component options=${props.options} to JSON. It needs to be serializable.`,
         );
       }
       return {

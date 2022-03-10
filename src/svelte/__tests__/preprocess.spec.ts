@@ -1,4 +1,4 @@
-import partialHydration from '../partialHydration';
+import partialHydration from '../preprocess';
 
 describe('#partialHydration', () => {
   it('replaces as expected', async () => {

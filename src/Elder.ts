@@ -7,7 +7,7 @@ import plugins from './plugins';
 import { hookInterface } from './hooks/hookInterface';
 import internalHooks from './hooks';
 import build from './build/build';
-import partialHydration from './partialHydration/partialHydration';
+// import partialHydration from './partialHydration/partialHydration';
 
 import {
   prepareRunHook,
@@ -337,4 +337,4 @@ class Elder {
   }
 }
 
-export { Elder, build, partialHydration };
+export { Elder, build };

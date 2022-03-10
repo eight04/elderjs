@@ -2,7 +2,7 @@ import normalizeSnapshot from '../../utils/normalizeSnapshot';
 
 // process.cwd = () => 'test';
 
-jest.mock('../../utils/svelteComponent', () => (component) => `<div class="svelteComponent">${component}</div>`);
+jest.mock('../../utils/renderComponent', () => (component) => `<div class="svelteComponent">${component}</div>`);
 
 describe('#routes', () => {
   const settings = {

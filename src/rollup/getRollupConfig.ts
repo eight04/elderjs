@@ -10,7 +10,8 @@ import defaultsDeep from 'lodash.defaultsdeep';
 import { getElderConfig } from '../index';
 import { getDefaultRollup } from '../utils/validations';
 import getPluginLocations from '../utils/getPluginLocations';
-import elderSvelte from './rollupPlugin';
+import { Framework } from '../utils/types';
+import elder from './rollupPlugin';
 
 const production = process.env.NODE_ENV === 'production' || !process.env.ROLLUP_WATCH;
 
@@ -18,7 +19,7 @@ export function createBrowserConfig({
   input,
   output,
   multiInputConfig,
-  svelteConfig,
+  frameworks,
   replacements = {},
   elderConfig,
   startDevServer = false,
@@ -38,10 +39,11 @@ export function createBrowserConfig({
     plugins: [
       replace(toReplace),
       json(),
-      elderSvelte({ svelteConfig, type: 'client', elderConfig, startDevServer }),
+      ...frameworks.map((f) => f.getPlugins({ system: 'rollup', type: 'client' })).flat(),
+      elder({ type: 'client', elderConfig, startDevServer, frameworks }),
       nodeResolve({
         browser: true,
-        dedupe: ['svelte'],
+        dedupe: [...frameworks.map((f) => f.dedupe).flat()],
         preferBuiltins: true,
         rootDir: process.cwd(),
       }),
@@ -65,7 +67,7 @@ export function createBrowserConfig({
   if (production) {
     config.plugins.push(
       babel({
-        extensions: ['.js', '.mjs', '.cjs', '.html', '.svelte'],
+        extensions: ['.js', '.mjs', '.cjs', '.html', ...frameworks.map((f) => f.extensions).flat()],
         include: ['node_modules/**', 'src/**'],
         exclude: ['node_modules/@babel/**'],
         runtimeHelpers: true,
@@ -82,7 +84,7 @@ export function createBrowserConfig({
 export function createSSRConfig({
   input,
   output,
-  svelteConfig,
+  frameworks,
   replacements = {},
   multiInputConfig,
   elderConfig,
@@ -102,10 +104,11 @@ export function createSSRConfig({
     plugins: [
       replace(toReplace),
       json(),
-      elderSvelte({ svelteConfig, type: 'ssr', elderConfig, startDevServer }),
+      ...frameworks.map((f) => f.getPlugins({ system: 'rollup', type: 'ssr' })).flat(),
+      elder({ type: 'ssr', elderConfig, startDevServer, frameworks }),
       nodeResolve({
         browser: false,
-        dedupe: ['svelte'],
+        dedupe: [...frameworks.map((f) => f.dedupe).flat()],
       }),
       commonjs({ sourceMap: true }),
       production && terser(),
@@ -124,9 +127,15 @@ export function createSSRConfig({
   return config;
 }
 
-export default function getRollupConfig(options) {
+type getRollupConfigOptions = {
+  replacements?: object;
+  startDevServer?: boolean;
+  frameworks: Array<Framework>;
+};
+
+export default function getRollupConfig(options: getRollupConfigOptions) {
   const defaultOptions = getDefaultRollup();
-  const { svelteConfig, replacements, startDevServer } = defaultsDeep(options, defaultOptions);
+  const { frameworks, replacements, startDevServer } = defaultsDeep(options, defaultOptions);
   const elderConfig = getElderConfig();
   const relSrcDir = elderConfig.srcDir.replace(elderConfig.rootDir, '').substr(1);
 
@@ -137,14 +146,26 @@ export default function getRollupConfig(options) {
   const { paths: pluginPaths } = getPluginLocations(elderConfig);
   const pluginGlobs = pluginPaths.map((plugin) => `${plugin}*.svelte`);
 
+  function* serverEntries() {
+    for (const framework of frameworks) {
+      for (const ext of framework.extensions) {
+        yield `${relSrcDir}/layouts/*${ext}`;
+        yield `${relSrcDir}/routes/**/*${ext}`;
+      }
+    }
+  }
+
+  function* clientEntries() {
+    for (const framework of frameworks) {
+      for (const ext of framework.extensions) {
+        yield `${relSrcDir}/components/**/*${ext}`;
+      }
+    }
+  }
+
   configs.push(
     createSSRConfig({
-      input: [
-        `${relSrcDir}/layouts/*.svelte`,
-        `${relSrcDir}/routes/**/*.svelte`,
-        `${relSrcDir}/components/**/*.svelte`,
-        ...pluginGlobs,
-      ],
+      input: [...serverEntries(), ...clientEntries(), ...pluginGlobs],
       output: {
         dir: elderConfig.$$internal.ssrComponents,
         format: 'cjs',
@@ -154,7 +175,7 @@ export default function getRollupConfig(options) {
       multiInputConfig: multiInput({
         relative: 'src/',
       }),
-      svelteConfig,
+      frameworks,
       replacements,
       elderConfig,
       startDevServer,
@@ -167,7 +188,7 @@ export default function getRollupConfig(options) {
     // keep things from crashing of there are no components
     configs.push(
       createBrowserConfig({
-        input: [`${relSrcDir}/components/**/*.svelte`, ...pluginGlobs],
+        input: [...clientEntries(), ...pluginGlobs],
         output: [
           {
             dir: elderConfig.$$internal.clientComponents,
@@ -179,7 +200,7 @@ export default function getRollupConfig(options) {
         multiInputConfig: multiInput({
           relative: 'src/',
         }),
-        svelteConfig,
+        frameworks,
         replacements,
         elderConfig,
         startDevServer,

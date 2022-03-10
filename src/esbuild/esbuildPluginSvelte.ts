@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { promises as fsPromises } from 'fs';
 import { dirname, resolve, isAbsolute, sep, relative } from 'path';
 // eslint-disable-next-line import/no-unresolved

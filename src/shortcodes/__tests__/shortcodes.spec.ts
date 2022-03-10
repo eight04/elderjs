@@ -4,7 +4,7 @@ describe('#shortcodes', () => {
   it('contains all shortcodes we want', () => {
     expect(shortcodes).toEqual([
       {
-        shortcode: 'svelteComponent',
+        shortcode: 'component',
         run: expect.any(Function),
         $$meta: {
           addedBy: 'elder',
@@ -21,7 +21,7 @@ describe('#shortcodes', () => {
         props: {},
         helpers: null,
       }),
-    ).rejects.toThrow('svelteComponent shortcode requires a name="" property.');
+    ).rejects.toThrow('component shortcode requires a name="" property.');
     // parse nothing
     expect(
       await shortcodes[0].run({

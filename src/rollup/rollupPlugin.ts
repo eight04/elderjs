@@ -1,23 +1,32 @@
 /* eslint-disable global-require */
 /* eslint-disable no-param-reassign */
 import path, { sep } from 'path';
-import CleanCSS from 'clean-css';
+// import CleanCSS from 'clean-css';
 import { Plugin } from 'rollup';
 
-import { compile, preprocess } from 'svelte/compiler';
-import sparkMd5 from 'spark-md5';
+// import { compile, preprocess } from 'svelte/compiler';
+// import sparkMd5 from 'spark-md5';
 import fs from 'fs-extra';
-import devalue from 'devalue';
+// import devalue from 'devalue';
 import btoa from 'btoa';
 // eslint-disable-next-line import/no-unresolved
 import { CompileOptions } from 'svelte/types/compiler/interfaces';
 import del from 'del';
 import { fork, ChildProcess } from 'child_process';
 import chokidar from 'chokidar';
+import MagicString from 'magic-string';
 
-import partialHydration from '../partialHydration/partialHydration';
+// import partialHydration from '../partialHydration/partialHydration';
 import windowsPathFix from '../utils/windowsPathFix';
-import { SettingsOptions } from '../utils/types';
+import { SettingsOptions, Framework } from '../utils/types';
+
+function silentDelete(file) {
+  try {
+    del.sync(file);
+  } catch (err) {
+    // pass
+  }
+}
 
 export type RollupCacheElder = {
   [name: string]: Set<string>;
@@ -76,89 +85,6 @@ export const getCompilerOptions = ({ type }) => {
 
   return compilerOptions;
 };
-
-export function transformFn({
-  svelteConfig,
-  elderConfig,
-  type,
-}: {
-  svelteConfig: any;
-  elderConfig: SettingsOptions;
-  type: 'ssr' | 'client';
-}) {
-  const compilerOptions = getCompilerOptions({ type });
-
-  const preprocessors =
-    svelteConfig && Array.isArray(svelteConfig.preprocess)
-      ? [...svelteConfig.preprocess, partialHydration]
-      : [partialHydration];
-
-  return async (code, id) => {
-    const extensions = (svelteConfig && svelteConfig.extensions) || ['.svelte'];
-
-    try {
-      const extension = path.extname(id);
-
-      // eslint-disable-next-line no-bitwise
-      if (!~extensions.indexOf(extension)) return null;
-
-      // look in the cache
-
-      const digest = sparkMd5.hash(code + JSON.stringify(compilerOptions));
-
-      if (cache.has(digest)) {
-        if (type === 'ssr') {
-          // we should return the cache... but we also must update the css cache for this file or it will be stale.
-          const css = cache.get(`css${digest}`);
-          if (css) {
-            cache.set(`css${id}`, css);
-          }
-        }
-        return cache.get(digest);
-      }
-
-      const filename = path.relative(elderConfig.rootDir, id);
-
-      const processed = await preprocess(code, preprocessors, { filename });
-
-      // @ts-ignore - these types aren't in the type files... but if we don't pass in a map things break.
-      if (processed.map) compilerOptions.sourcemap = processed.map;
-
-      const compiled = await compile(processed.code, { ...compilerOptions, filename });
-      // (compiled.warnings || []).forEach((warning) => {
-      //   if (warning.code === 'css-unused-selector') return;
-      //   this.warn(warning);
-      // });
-
-      const dependencies = getDependencies(id);
-      compiled.js.dependencies = [...dependencies, ...processed.dependencies];
-
-      if (this.addWatchFile) {
-        this.addWatchFile(id);
-        compiled.js.dependencies.map((d) => this.addWatchFile(d));
-      }
-      if (type === 'ssr') {
-        const css = {
-          code: compiled.css.code || '',
-          map: compiled.css.map || '',
-          priority: cssFilePriority(id),
-        };
-
-        cache.set(`css${id}`, css);
-
-        // create CSS digest so we can grab it again in the future when we see this same digest.
-        cache.set(`css${digest}`, css);
-      }
-
-      cache.set(digest, { output: compiled.js, warnings: compiled.warnings || [] });
-
-      return { output: compiled.js, warnings: compiled.warnings || [] };
-    } catch (e) {
-      console.error('> Elder.js error in transform.', e);
-      throw e;
-    }
-  };
-}
 
 export function logDependency(importee, importer) {
   if (importee === 'svelte/internal' || importee === 'svelte') return;
@@ -241,67 +167,6 @@ export function resolveFn(importee, importer) {
     return svelteResolve;
   }
   return null;
-}
-
-export const sortCss = (css) => {
-  return css
-    .sort((a, b) => b[1].priority - a[1].priority)
-    .reduce((out, cv) => {
-      const o = {};
-      o[cv[0]] = { styles: cv[1].code, sourceMap: cv[1].map };
-      out.push(o);
-      return out;
-    }, []);
-};
-
-// eslint-disable-next-line consistent-return
-export function loadCss(id) {
-  const extension = path.extname(id);
-  // capture imported css
-  if (extension === '.css') {
-    const code = fs.readFileSync(id, 'utf-8');
-    cache.set(`css${id}`, {
-      code,
-      map: '',
-      priority: 5,
-    });
-    return '';
-  }
-}
-
-export const getCssFromCache = (arr: string[] | 'all'): [string, string][] => {
-  const css = [];
-  if (arr === 'all') {
-    for (const [key, value] of cache.entries()) {
-      if (key.indexOf('css') === 0) {
-        const id = key.substr(3);
-        css.push([id, value]);
-      }
-    }
-  } else {
-    for (const id of arr) {
-      if (cache.has(`css${id}`)) css.push([id, cache.get(`css${id}`)]);
-    }
-  }
-
-  return css;
-};
-
-export async function minifyCss(dependencies: string[] | 'all' = [], elderConfig: SettingsOptions) {
-  const css = getCssFromCache(dependencies);
-
-  const cleanCss = new CleanCSS({
-    sourceMap: true,
-    sourceMapInlineSources: true,
-    level: isDev ? 0 : 1,
-    rebaseTo: elderConfig.distDir,
-    // rebase: elderConfig.distDir,
-  });
-  const sorted = sortCss(css);
-  return {
-    ...cleanCss.minify(sorted),
-    included: sorted ? sorted.map((m) => Object.keys(m)[0]) : [],
-  };
 }
 
 export const devServer = ({
@@ -392,23 +257,25 @@ export const devServer = ({
     startOrRestartServer,
   };
 };
+
 export interface IElderjsRollupConfig {
   type: 'ssr' | 'client';
-  svelteConfig: any;
   elderConfig: SettingsOptions;
   startDevServer?: boolean;
+  frameworks: Array<Framework>;
 }
 
 export default function elderjsRollup({
   elderConfig,
-  svelteConfig,
+  frameworks,
   type = 'ssr',
   startDevServer = false,
 }: IElderjsRollupConfig): Partial<Plugin> {
-  let styleCssHash;
-  let styleCssMapHash;
-
   const { childProcess, startWatcher, startOrRestartServer } = devServer({ elderConfig, forceStart: false });
+
+  function getFramework(id) {
+    return frameworks.find((f) => f.extensions.some((e) => id.endsWith(e)));
+  }
 
   return {
     name: 'rollup-plugin-elder',
@@ -431,67 +298,63 @@ export default function elderjsRollup({
       // kill server to prevent failures.
       if (childProcess) childProcess.kill('SIGINT');
 
-      // create placeholder files to be filled later.
-      if (type === 'ssr') {
-        styleCssHash = this.emitFile({
-          type: 'asset',
-          name: 'svelte.css',
-        });
-
-        if (isDev) {
-          styleCssMapHash = this.emitFile({
-            type: 'asset',
-            name: 'svelte.css.map',
-          });
-        }
-      }
-
       // cleaning up folders that need to be deleted.
       if (type === 'ssr') {
-        del.sync(elderConfig.$$internal.ssrComponents);
-        del.sync(path.resolve(elderConfig.$$internal.distElder, `.${sep}assets${sep}`));
-        del.sync(path.resolve(elderConfig.$$internal.distElder, `.${sep}props${sep}`));
+        silentDelete(elderConfig.$$internal.ssrComponents);
+        silentDelete(path.resolve(elderConfig.$$internal.distElder, `.${sep}assets${sep}`));
+        silentDelete(path.resolve(elderConfig.$$internal.distElder, `.${sep}props${sep}`));
       } else if (type === 'client') {
-        del.sync(path.resolve(elderConfig.$$internal.distElder, `.${sep}svelte${sep}`));
+        silentDelete(path.resolve(elderConfig.$$internal.distElder, `.${sep}svelte${sep}`));
       }
     },
 
     resolveId: resolveFn,
-    load: loadCss,
+    // load: loadCss,
     async transform(code, id) {
-      const thisTransformFn = transformFn.bind(this);
-      const r = await thisTransformFn({
-        svelteConfig,
-        elderConfig,
-        type,
-      })(code, id);
-
-      if (!r) return;
-
-      (r.warnings || []).forEach((warning) => {
-        if (warning.code === 'css-unused-selector') return;
-        this.warn(warning);
-      });
-      // eslint-disable-next-line consistent-return
-      return r.output;
-    },
-
-    // eslint-disable-next-line consistent-return
-    async renderChunk(code, chunk) {
-      if (chunk.isEntry) {
-        if (type === 'ssr') {
-          const trackedDeps = getDependencies(chunk.facadeModuleId);
-
-          const cssOutput = await minifyCss(trackedDeps, elderConfig);
-          code += `\nmodule.exports._css = ${devalue(cssOutput.styles)};`;
-          code += `\nmodule.exports._cssMap = ${devalue(encodeSourceMap(cssOutput.sourceMap))};`;
-          code += `\nmodule.exports._cssIncluded = ${JSON.stringify(
-            cssOutput.included.map((d) => path.relative(elderConfig.rootDir, d)),
-          )}`;
-
-          return { code, map: null };
-        }
+      if (id.endsWith('.css')) {
+        // FIXME: we should only transform CSS imported by components
+        return {
+          code: `export default ${JSON.stringify(code)}`,
+        };
       }
+
+      const framework = getFramework(id);
+      if (!framework) return null;
+
+      const s = new MagicString(code);
+
+      let i = 0;
+      const imported = new Set();
+      // FIXME: this naive approach will extract imports from source map
+      for (const match of code.matchAll(/import\s+[^;\n]*(['"]([^\n;'"]+)['"])/g)) {
+        const [, source, importee] = match;
+        if (!imported.has(importee)) {
+          if (importee.endsWith('.css')) {
+            const repl = type === 'ssr' ? `import __css${i} from ${source}` : '';
+            s.overwrite(match.index, match.index + match[0].length, repl);
+            i += 1;
+          } else if (getFramework(importee) && type === 'ssr') {
+            s.append(`\nimport {_css as __css${i}} from ${source};`);
+            i += 1;
+          }
+        }
+        imported.add(importee);
+      }
+
+      if (type === 'ssr') {
+        s.append(
+          `\nexport const _css = () => [${Array.from({ length: i })
+            .map((v, j) => `__css${j}`)
+            .join(', ')}];`,
+        );
+      }
+
+      s.append(`\nexport * from ${JSON.stringify(framework.adapterPath)};`);
+
+      return {
+        code: s.toString(),
+        map: s.generateMap(),
+      };
     },
 
     /**
@@ -501,44 +364,7 @@ export default function elderjsRollup({
      * @param isWrite
      */
 
-    // eslint-disable-next-line consistent-return
-    async generateBundle() {
-      // IMPORTANT!!!
-      // all css is only available on the ssr version...
-      // but we need to move the css to the client folder.
-      if (type === 'ssr') {
-        const { styles, sourceMap } = await minifyCss([...this.getModuleIds()], elderConfig);
-        if (styleCssMapHash) {
-          // set the source later when we have it.
-          this.setAssetSource(styleCssMapHash, sourceMap.toString());
-          const sourceMapFile = this.getFileName(styleCssMapHash);
-          const sourceMapFileRel = `/${path.relative(
-            elderConfig.distDir,
-            path.resolve(elderConfig.$$internal.distElder, sourceMapFile),
-          )}`;
-          this.setAssetSource(styleCssHash, `${styles}\n /*# sourceMappingURL=${sourceMapFileRel} */`);
-        } else if (styleCssHash) {
-          this.setAssetSource(styleCssHash, styles);
-        }
-      }
-    },
-
     writeBundle() {
-      if (type === 'ssr') {
-        // copy over assets from the ssr folder to the client folder
-        const ssrAssets = path.resolve(elderConfig.rootDir, `.${sep}___ELDER___${sep}compiled${sep}assets`);
-        const clientAssets = path.resolve(elderConfig.$$internal.distElder, `.${sep}assets${sep}`);
-        fs.ensureDirSync(clientAssets);
-        const open = fs.readdirSync(ssrAssets);
-        if (open.length > 0) {
-          open.forEach((name) => {
-            fs.copyFileSync(path.join(ssrAssets, name), path.join(clientAssets, name));
-          });
-        }
-      }
-
-      cache.set('dependencies', dependencyCache);
-
       if (startDevServer && type === 'client') {
         startWatcher();
         startOrRestartServer();

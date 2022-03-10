@@ -192,3 +192,11 @@ export interface RollupSettings {
   replacements?: Object;
   dev?: RollupDevOptions;
 }
+
+export interface Framework {
+  name: string;
+  extensions: Array<string>;
+  adapterPath: string;
+  dedupe?: Array<string>;
+  getPlugins?: ({ system, type }: { system: string; type: string }) => Array<any>;
+}

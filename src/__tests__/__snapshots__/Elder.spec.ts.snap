@@ -630,7 +630,7 @@ Object {
         "type": "elder",
       },
       "run": [Function],
-      "shortcode": "svelteComponent",
+      "shortcode": "component",
     },
   ],
 }
@@ -1290,7 +1290,7 @@ Object {
         "type": "elder",
       },
       "run": [Function],
-      "shortcode": "svelteComponent",
+      "shortcode": "component",
     },
   ],
 }

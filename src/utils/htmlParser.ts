@@ -52,7 +52,7 @@ export function parseExpression(content: string, index: number): ExpressionNode 
   const rx = /{\s*(\.\.\.)?/y;
   rx.lastIndex = index;
   const [prefix, , hasSpread] = rx.exec(content);
-  const exp = parseExpressionAt(content, index + prefix.length);
+  const exp = parseExpressionAt(content, index + prefix.length, { ecmaVersion: 'latest' });
   const rxEnd = /\s*}/y;
   rxEnd.lastIndex = exp.end;
   rxEnd.exec(content);

@@ -258,7 +258,6 @@ const hookSchema = yup
   .noUnknown(true);
 
 const rollupSchema = yup.object({
-  svelteConfig: yup.object().default({}).notRequired().label('Usually imported from ./svelte.config.js'),
   replacements: yup
     .object()
     .default({})

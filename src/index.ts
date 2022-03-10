@@ -1,6 +1,6 @@
 /* istanbul ignore file */
 
-export { default as partialHydration, preprocessSvelteContent } from './partialHydration/partialHydration';
+// export { default as partialHydration, preprocessSvelteContent } from './partialHydration/partialHydration';
 
 export { default as esbuildBundler } from './esbuild/esbuildBundler';
 

@@ -4,6 +4,8 @@ import path from 'path';
 import { createBrowserConfig, createSSRConfig } from '../getRollupConfig';
 import getConfig from '../../utils/getConfig';
 
+import svelte from '../../svelte';
+
 // TODO: test replace
 
 jest.mock('fs-extra', () => {
@@ -35,7 +37,7 @@ describe('#getRollupConfig', () => {
           relative: `./components`,
           transformOutputPath: (output) => `${path.basename(output)}`,
         }),
-        svelteConfig: {},
+        frameworks: [],
         elderConfig,
       });
       expect(config).toEqual(
@@ -65,7 +67,7 @@ describe('#getRollupConfig', () => {
           sourcemap: true,
           format: 'system',
         },
-        svelteConfig: {},
+        frameworks: [],
         multiInputConfig: false,
         elderConfig,
       }).plugins.map((p) => p.name),
@@ -83,7 +85,7 @@ describe('#getRollupConfig', () => {
           sourcemap: true,
           format: 'system',
         },
-        svelteConfig: {},
+        frameworks: [],
         multiInputConfig: false,
       }).plugins.map((p) => p.name),
     ).toEqual(['replace', 'json', 'rollup-plugin-elder', 'node-resolve', 'commonjs', 'babel', 'terser']);
@@ -102,15 +104,17 @@ describe('#getRollupConfig', () => {
         relative: `./components`,
         transformOutputPath: (output) => `${path.basename(output)}`,
       }),
-      svelteConfig: {
-        preprocess: [
-          {
-            style: ({ content }) => {
-              return content.toUpperCase();
+      frameworks: [
+        svelte({
+          preprocess: [
+            {
+              style: ({ content }) => {
+                return content.toUpperCase();
+              },
             },
-          },
-        ],
-      },
+          ],
+        }),
+      ],
     });
     expect(config).toEqual(
       expect.objectContaining({
@@ -125,7 +129,7 @@ describe('#getRollupConfig', () => {
       }),
     );
 
-    expect(plugins).toHaveLength(7);
+    expect(plugins).toHaveLength(8);
   });
 
   it('createSSRConfig multiInputConfig = false', () => {
@@ -138,18 +142,20 @@ describe('#getRollupConfig', () => {
           format: 'cjs',
           exports: 'auto',
         },
-        svelteConfig: {
-          preprocess: [
-            {
-              style: ({ content }) => {
-                return content.toUpperCase();
+        frameworks: [
+          svelte({
+            preprocess: [
+              {
+                style: ({ content }) => {
+                  return content.toUpperCase();
+                },
               },
-            },
-          ],
-        },
+            ],
+          }),
+        ],
         multiInputConfig: false,
       }).plugins.map((p) => p.name),
-    ).toEqual(['replace', 'json', 'rollup-plugin-elder', 'node-resolve', 'commonjs', 'terser']);
+    ).toEqual(['replace', 'json', 'svelte', 'rollup-plugin-elder', 'node-resolve', 'commonjs', 'terser']);
   });
 
   it('getRollupConfig as a whole works - default options', () => {
@@ -198,7 +204,7 @@ describe('#getRollupConfig', () => {
     };
 
     // would be nice to mock getPluginPaths if it's extracted to separate file
-    const configs = require('../getRollupConfig').default({ svelteConfig });
+    const configs = require('../getRollupConfig').default({ frameworks: [svelte(svelteConfig)] });
     expect(configs).toHaveLength(2);
   });
 });
