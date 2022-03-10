@@ -1,28 +1,24 @@
 import rollupSvelte from 'rollup-plugin-svelte';
-// import hooks from '../hooks';
 import { Framework } from '../utils/types';
 import preprocess from './preprocess';
 
-// hooks.push({
-// hook: 'bundle',
-// run: ({ frameworks, ...props }) => {
-// return {
-// frameworks: [...frameworks, svelteFramework(props)],
-// };
-// },
-// });
+function arrayify(value: any): Array<any> {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  return [value];
+}
 
-export default function svelteFramework(config = {}): Framework {
+export default function svelteFramework({ preprocess: userPreprocess = null } = {}): Framework {
   return {
     name: 'SvelteFramework',
     extensions: ['.svelte'],
-    adapterPath: require.resolve('./adapter'),
+    adapterPath: require.resolve('./adapter.mjs'),
     dedupe: ['svelte'],
     getPlugins: ({ system, type }) => {
       if (system === 'rollup') {
         return [
           rollupSvelte({
-            preprocess,
+            preprocess: [preprocess, ...arrayify(userPreprocess)],
             compilerOptions: {
               generate: type === 'ssr' ? 'ssr' : 'dom',
               // FIXME: only set hydratable if module id matches `/components/**/*.svelte`

@@ -14,18 +14,15 @@ export function renderComponent({ path, props, page }) {
   /* eslint-disable import/no-dynamic-require, no-underscore-dangle */
   const component = require(path);
   const result = component.__ejs_render?.(component, props, page);
-  if (result && component._css) {
-    result.bundledCss = collectComponentCss(component._css);
-  }
 
   // stacks
   if (result?.head) {
     page.headStack.push({ source: path, priority: 50, string: result.head });
   }
   if (page.settings.css === 'inline') {
-    const css = result?.bundledCss || result?.css?.code;
+    const css = result?.css || (component._css && { code: collectComponentCss(component._css), map: null });
     if (css) {
-      page.svelteCss.push({ css, cssMap: result?.css?.map });
+      page.svelteCss.push({ css: css.code, cssMap: css.map });
     }
   }
   return result;

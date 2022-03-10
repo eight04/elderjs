@@ -8,7 +8,8 @@
     "node": ">= 12.0.0"
   },
   "scripts": {
-    "build": "rimraf ./build && tsc",
+    "build": "rimraf ./build && tsc && npm run build:adapter",
+    "build:adapter": "shx cp src/svelte/adapter.mjs build/svelte/adapter.mjs",
     "dev": "tsc -w",
     "prepare": "npm run build",
     "test": "jest",
@@ -71,6 +72,7 @@
     "locate-character": "^2.0.5",
     "prettier": "^2.3.2",
     "rimraf": "^3.0.2",
+    "shx": "^0.3.4",
     "ts-jest": "^26.5.3",
     "ts-node": "^9.1.1",
     "typescript": "^4.3.5"

@@ -1,8 +1,10 @@
-export default function collectComponentCss(input) {
+const cache = new Map();
+
+function collectComponentCss(input: any): string {
   const collected = new Set();
   const result = [];
 
-  function search(value) {
+  const search = (value) => {
     // break recursive imports
     if (collected.has(value)) return;
     collected.add(value);
@@ -14,8 +16,23 @@ export default function collectComponentCss(input) {
     } else if (typeof value === 'function') {
       search(value());
     }
-  }
+  };
 
   search(input);
+
   return result.join('');
 }
+
+type collectComponentCssType = typeof collectComponentCss;
+
+function memo(store: Map<any, any>, fn: collectComponentCssType): collectComponentCssType {
+  return (value) => {
+    if (store.has(value)) return store.get(value);
+
+    const result = fn(value);
+    store.set(value, result);
+    return result;
+  };
+}
+
+export default memo(cache, collectComponentCss);
