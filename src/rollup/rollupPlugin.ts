@@ -19,6 +19,7 @@ import MagicString from 'magic-string';
 // import partialHydration from '../partialHydration/partialHydration';
 import windowsPathFix from '../utils/windowsPathFix';
 import { SettingsOptions, Framework } from '../utils/types';
+import collectComponentCss from '../utils/collectComponentCss';
 
 function silentDelete(file) {
   try {
@@ -364,10 +365,34 @@ export default function elderjsRollup({
      * @param isWrite
      */
 
-    writeBundle() {
+    writeBundle(outputOptions, bundle) {
       if (startDevServer && type === 'client') {
         startWatcher();
         startOrRestartServer();
+      }
+      // output css
+      if (type === 'ssr') {
+        const css = [];
+        for (const chunk of Object.values(bundle)) {
+          if (chunk.type === 'chunk' && chunk.isEntry) {
+            const url = path.join(outputOptions.dir, chunk.fileName);
+            /* eslint-disable import/no-dynamic-require, no-underscore-dangle */
+            const mod = require(url);
+            if (mod._css) {
+              css.push(mod._css);
+            }
+            /* eslint-enable import/no-dynamic-require, no-underscore-dangle */
+          }
+        }
+        const code = collectComponentCss(css);
+        if (code) {
+          const ssrOutput = path.join(elderConfig.$$internal.ssrComponents, 'assets/style.css');
+          const clientOutput = path.join(elderConfig.$$internal.distElder, 'assets/style.css');
+          for (const filename of [ssrOutput, clientOutput]) {
+            fs.ensureDirSync(path.dirname(filename));
+            fs.writeFile(filename, code);
+          }
+        }
       }
     },
   };

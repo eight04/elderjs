@@ -2,6 +2,7 @@
 /coverage/
 /build/
 ___ELDER___
+public
 
 .DS_store
 .idea
