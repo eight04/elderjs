@@ -13,6 +13,7 @@ Object {
   "_exclusive": Object {},
   "_mutate": undefined,
   "_nodes": Array [
+    "frameworks",
     "css",
     "plugins",
     "shortcodes",
@@ -413,6 +414,34 @@ Object {
         [Function],
       ],
       "type": "string",
+    },
+    "frameworks": Object {
+      "_blacklist": Object {
+        "list": Set {},
+        "refs": Map {},
+      },
+      "_conditions": Array [],
+      "_deps": Array [],
+      "_exclusive": Object {},
+      "_label": "An array of framework plugins.",
+      "_mutate": undefined,
+      "_options": Object {
+        "abortEarly": true,
+        "recursive": true,
+      },
+      "_subType": undefined,
+      "_type": "array",
+      "_typeError": [Function],
+      "_whitelist": Object {
+        "list": Set {},
+        "refs": Map {},
+      },
+      "innerType": undefined,
+      "tests": Array [],
+      "transforms": Array [
+        [Function],
+      ],
+      "type": "array",
     },
     "hooks": Object {
       "_blacklist": Object {

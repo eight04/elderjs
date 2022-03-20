@@ -55,6 +55,14 @@ type PropOptions = {
   hydration: 'html' | 'hybrid' | 'file';
 };
 
+export interface Framework {
+  name: string;
+  extensions: Array<string>;
+  adapterPath: string;
+  dedupe?: Array<string>;
+  getPlugins?: ({ system, type }: { system: string; type: string }) => Array<any>;
+}
+
 export type InitializationOptions = {
   distDir?: string;
   srcDir?: string;
@@ -76,6 +84,7 @@ export type InitializationOptions = {
   };
   context?: string;
   worker?: boolean;
+  frameworks?: Array<Framework>;
 };
 
 export type SettingsOptions = {
@@ -102,6 +111,7 @@ export type SettingsOptions = {
   context?: string;
   worker?: boolean;
   css: 'none' | 'file' | 'inline' | 'lazy';
+  frameworks: Array<Framework>;
 };
 
 export type QueryOptions = {
@@ -191,12 +201,4 @@ export interface RollupSettings {
   svelteConfig?: any;
   replacements?: Object;
   dev?: RollupDevOptions;
-}
-
-export interface Framework {
-  name: string;
-  extensions: Array<string>;
-  adapterPath: string;
-  dedupe?: Array<string>;
-  getPlugins?: ({ system, type }: { system: string; type: string }) => Array<any>;
 }

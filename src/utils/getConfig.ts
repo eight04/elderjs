@@ -8,6 +8,7 @@ import { SettingsOptions, InitializationOptions } from './types';
 import { getDefaultConfig } from './validations';
 import prepareFindSvelteComponent from '../partialHydration/prepareFindSvelteComponent';
 import normalizePrefix from './normalizePrefix';
+import svelte from '../svelte';
 
 function getConfig(initializationOptions: InitializationOptions = {}): SettingsOptions {
   let loadedConfig: InitializationOptions = {};
@@ -41,6 +42,10 @@ function getConfig(initializationOptions: InitializationOptions = {}): SettingsO
   const distElder = path.resolve(config.distDir, `.${serverPrefix}/_elderjs/`);
   fs.ensureDirSync(path.resolve(distElder));
   fs.ensureDirSync(path.resolve(clientComponents));
+
+  if (!config.frameworks) {
+    config.frameworks = [svelte()];
+  }
 
   config.$$internal = {
     ssrComponents,

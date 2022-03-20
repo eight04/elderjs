@@ -144,6 +144,7 @@ const configSchema = yup.object({
     .label(
       `How should css found in svelte files be handled? 'inline' emits styles into the head. 'file' adds a file include into the head. 'none' doesn't do anything with the styles.`,
     ),
+  frameworks: yup.array().notRequired().label('An array of framework plugins.'),
 });
 
 /**

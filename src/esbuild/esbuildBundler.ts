@@ -6,14 +6,13 @@
 // the file watcher should restart the entire esbuild process when a new svelte file is seen. This includes clearing caches.
 
 import { build, BuildResult } from 'esbuild';
-import glob from 'glob';
+import fg from 'fast-glob';
 import path from 'path';
-
-import fs from 'fs-extra';
+import EventEmitter from 'events';
 
 // eslint-disable-next-line import/no-unresolved
 import { PreprocessorGroup } from 'svelte/types/compiler/preprocess/types';
-import esbuildPluginSvelte from './esbuildPluginSvelte';
+import esbuildPlugin from './esbuildPlugin';
 import { InitializationOptions, SettingsOptions } from '../utils/types';
 import { getElderConfig } from '..';
 import { devServer } from '../rollup/rollupPlugin';
@@ -25,44 +24,6 @@ export type TSvelteHandler = {
   config: SettingsOptions;
   preprocess: TPreprocess;
 };
-
-export function getSvelteConfig(elderConfig: SettingsOptions): TPreprocess {
-  const svelteConfigPath = path.resolve(elderConfig.rootDir, `./svelte.config.js`);
-  if (fs.existsSync(svelteConfigPath)) {
-    try {
-      // eslint-disable-next-line import/no-dynamic-require
-      const req = require(svelteConfigPath);
-      if (req) {
-        return req;
-      }
-    } catch (err) {
-      if (err.code === 'MODULE_NOT_FOUND') {
-        console.warn(`Unable to load svelte.config.js from ${svelteConfigPath}`, err);
-      }
-      return false;
-    }
-  }
-  return false;
-}
-
-export function getPackagesWithSvelte(pkg, elderConfig: SettingsOptions) {
-  const pkgs = []
-    .concat(pkg.dependents ? Object.keys(pkg.dependents) : [])
-    .concat(pkg.devDependencies ? Object.keys(pkg.devDependencies) : []);
-  const sveltePackages = pkgs.reduce((out, cv) => {
-    try {
-      const resolved = path.resolve(elderConfig.rootDir, `./node_modules/${cv}/package.json`);
-      const current = require(resolved);
-      if (current.svelte) {
-        out.push(cv);
-      }
-    } catch (e) {
-      //
-    }
-    return out;
-  }, []);
-  return sveltePackages;
-}
 
 const getRestartHelper = (startOrRestartServer) => {
   let state;
@@ -90,134 +51,133 @@ const getRestartHelper = (startOrRestartServer) => {
   };
 };
 
-// eslint-disable-next-line consistent-return
-const svelteHandler = async ({ elderConfig, svelteConfig, replacements, restartHelper }) => {
-  try {
-    const builders: { ssr?: BuildResult; client?: BuildResult } = {};
+// FIXME: move this to utils to share it with rollup
+function getEntries(elderConfig: SettingsOptions) {
+  const patterns = [];
+  const src = path.relative(elderConfig.rootDir, elderConfig.srcDir);
+  for (const framework of elderConfig.frameworks) {
+    for (const ext of framework.extensions) {
+      patterns.push(`${src}/**/*${ext}`);
+    }
+  }
+  return fg.sync(patterns, { cwd: elderConfig.rootDir });
+}
 
-    // eslint-disable-next-line global-require
-    const pkg = require(path.resolve(elderConfig.rootDir, './package.json'));
-    const globPath = path.resolve(elderConfig.rootDir, `./src/**/*.svelte`);
-    const initialEntryPoints = glob.sync(globPath);
-    const sveltePackages = getPackagesWithSvelte(pkg, elderConfig);
-    const elderPlugins = getPluginLocations(elderConfig);
+const BUILD_TYPES = ['ssr', 'client'] as const;
+type BUILD_TYPE = typeof BUILD_TYPES[number];
 
-    builders.ssr = await build({
-      entryPoints: [...initialEntryPoints, ...elderPlugins.files],
-      bundle: true,
-      outdir: elderConfig.$$internal.ssrComponents,
-      plugins: [
-        esbuildPluginSvelte({
-          type: 'ssr',
-          sveltePackages,
-          elderConfig,
-          svelteConfig,
-        }),
+type PrepareBuilderOptions = {
+  elderConfig: SettingsOptions;
+  replacements?: { [pattern: string]: string | boolean };
+};
+const prepareBuilder = ({ elderConfig, replacements }: PrepareBuilderOptions) => {
+  const ee = new EventEmitter();
+  const builders: { ssr?: BuildResult; client?: BuildResult } = {};
+
+  // eslint-disable-next-line global-require
+  const pkg = require(path.resolve(elderConfig.rootDir, './package.json'));
+  const initialEntryPoints = getEntries(elderConfig);
+  const elderPlugins = getPluginLocations(elderConfig);
+
+  async function start(type: BUILD_TYPE, force = false, watch = false): Promise<boolean> {
+    if (builders[type] && !force) {
+      return false;
+    }
+
+    if (builders[type]) {
+      builders[type].stop();
+      ee.emit('reset', type);
+    }
+
+    builders[type] = await build({
+      absWorkingDir: elderConfig.rootDir,
+      entryPoints: [
+        ...initialEntryPoints.filter((e) => (type === 'ssr' ? true : e.includes('src/components'))),
+        ...elderPlugins.files,
       ],
-      watch: {
+      entryNames: `[dir]/[name]${type === 'ssr' ? '' : '.[hash]'}`,
+      splitting: type !== 'ssr',
+      bundle: true,
+      outdir: type === 'ssr' ? elderConfig.$$internal.ssrComponents : elderConfig.$$internal.clientComponents,
+      plugins: [
+        esbuildPlugin({
+          type,
+          elderConfig,
+        }),
+        ...elderConfig.frameworks.map((f) => f.getPlugins({ type, system: 'esbuild' })).flat(),
+      ],
+      watch: watch && {
         onRebuild(error) {
-          restartHelper('ssr');
-          if (error) console.error('ssr watch build failed:', error);
+          ee.emit('finished', type, error);
         },
       },
-      format: 'cjs',
-      target: ['node12'],
-      platform: 'node',
+      format: type === 'ssr' ? 'cjs' : 'esm',
+      target: [type === 'ssr' ? 'node12' : 'es2020'],
+      platform: type === 'ssr' ? 'node' : 'browser',
       sourcemap: !production,
-      minify: production,
-      outbase: 'src',
+      minify: true, // FIXME: obey production. note that we need minify: true in jest snapshot test to strip filenames in CSS
+      outbase: elderConfig.srcDir,
+      // FIXME: what is pkg.dependents?
       external: pkg.dependents ? [...Object.keys(pkg.dependents)] : [],
-      define: {
-        'process.env.componentType': "'server'",
-        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
-        ...replacements,
-      },
-    });
-
-    builders.client = await build({
-      entryPoints: [...initialEntryPoints.filter((i) => i.includes('src/components')), ...elderPlugins.files],
-      bundle: true,
-      outdir: elderConfig.$$internal.clientComponents,
-      entryNames: '[dir]/[name].[hash]',
-      plugins: [
-        esbuildPluginSvelte({
-          type: 'client',
-          sveltePackages,
-          elderConfig,
-          svelteConfig,
-        }),
-      ],
-      watch: {
-        onRebuild(error) {
-          if (error) console.error('client watch build failed:', error);
-          restartHelper('client');
-        },
-      },
-      format: 'esm',
-      target: ['es2020'],
-      platform: 'browser',
-      sourcemap: !production,
-      minify: true,
-      splitting: true,
       chunkNames: 'chunks/[name].[hash]',
       logLevel: 'error',
-      outbase: 'src',
       define: {
-        'process.env.componentType': "'browser'",
+        'process.env.componentType': type === 'ssr' ? "'server'" : "'client'",
         'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
         ...replacements,
       },
     });
-
-    restartHelper('start');
-
-    const restart = async () => {
-      if (builders.ssr) await builders.ssr.stop();
-      if (builders.client) await builders.client.stop();
-      restartHelper('reset');
-      return svelteHandler({
-        elderConfig,
-        svelteConfig,
-        replacements,
-        restartHelper,
-      });
-    };
-
-    return restart;
-  } catch (e) {
-    console.error(e);
+    return true;
   }
+
+  function startAll(watch: boolean) {
+    return Promise.all(BUILD_TYPES.map((type) => start(type, false, watch)));
+  }
+
+  return Object.assign(ee, {
+    start,
+    startAll,
+  });
 };
 
 type TEsbuildBundler = {
   initializationOptions?: InitializationOptions;
   replacements?: { [key: string]: string | boolean };
+  watch?: boolean;
 };
 
-const esbuildBundler = async ({ initializationOptions = {}, replacements = {} }: TEsbuildBundler = {}) => {
-  try {
-    const elderConfig = getElderConfig(initializationOptions);
-    const svelteConfig = getSvelteConfig(elderConfig);
+const esbuildBundler = async ({
+  initializationOptions = {},
+  replacements = {},
+  watch = true,
+}: TEsbuildBundler = {}) => {
+  const elderConfig = getElderConfig(initializationOptions);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { startOrRestartServer, startWatcher, childProcess } = devServer({
-      forceStart: true,
-      elderConfig,
-    });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { startOrRestartServer, startWatcher, childProcess } = devServer({
+    forceStart: true,
+    elderConfig,
+  });
+  const restartHelper = getRestartHelper(startOrRestartServer);
 
-    const restartHelper = getRestartHelper(startOrRestartServer);
+  // a simpler strategy is to stop server when bundler starts / start the server when bundler stops
+  const builder = prepareBuilder({ elderConfig, replacements });
+  builder.on('finished', (type, err) => {
+    console.warn('build error', err);
+    restartHelper(type);
+  });
+  builder.on('reset', () => {
+    // FIXME: not sure how this helper work
+    restartHelper('reset');
+  });
+  if (watch) {
+    restartHelper('start');
+  }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const restartEsbuild = await svelteHandler({
-      elderConfig,
-      svelteConfig,
-      replacements,
-      restartHelper,
-    });
+  await builder.startAll(watch);
 
+  if (watch) {
     startWatcher();
-  } catch (e) {
-    console.log(e);
   }
 };
 export default esbuildBundler;

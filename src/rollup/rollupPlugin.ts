@@ -21,7 +21,7 @@ import windowsPathFix from '../utils/windowsPathFix';
 import { SettingsOptions, Framework } from '../utils/types';
 import collectComponentCss from '../utils/collectComponentCss';
 
-function silentDelete(file) {
+export function silentDelete(file) {
   try {
     del.sync(file);
   } catch (err) {
