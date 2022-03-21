@@ -205,6 +205,7 @@ function esbuildPlugin({ type, elderConfig }: IEsBuildPluginSvelte): Plugin {
             if (/__ejs_css\.css$/.test(key) && type === 'ssr') {
               emitBundledCss(key);
             } else if (/\.css$/.test(key)) {
+              // FIXME: we should strip __EJS_COMPONENT_CSS__ when a component has no css file.
               if (type === 'ssr') {
                 injectComponentCss(key);
               } else {
