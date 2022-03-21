@@ -163,11 +163,15 @@ function esbuildPlugin({ type, elderConfig }: IEsBuildPluginSvelte): Plugin {
 
       build.onLoad({ filter: /.*/, namespace: 'ejs-entry' }, (args) => {
         const framework = getFramework(args.path, elderConfig.frameworks);
-        // FIXME: does it work if there is no default export?
+        const lines = [
+          `export * from ${JSON.stringify(args.path)};`,
+          // FIXME: what will happen when there is no default export?
+          `export {default} from ${JSON.stringify(args.path)};`,
+          `export * from ${JSON.stringify(framework.adapterPath)};`,
+          type === 'ssr' && 'export const _css = "__EJS_COMPONENT_CSS__";',
+        ].filter(Boolean);
         return {
-          contents: `export * from ${JSON.stringify(args.path)}; export {default} from ${JSON.stringify(
-            args.path,
-          )}; export * from ${JSON.stringify(framework.adapterPath)}; export const _css = "__EJS_COMPONENT_CSS__";`,
+          contents: lines.join('\n'),
           loader: 'js',
           resolveDir: path.dirname(args.path),
         };
