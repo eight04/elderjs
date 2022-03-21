@@ -86,8 +86,9 @@ function esbuildPlugin({ type, elderConfig }: IEsBuildPluginSvelte): Plugin {
       const dedupes = elderConfig.frameworks.map((f) => f.dedupe || []).flat();
       if (dedupes.length) {
         const resolveCache = new Map();
+        const rootCandidates = new Set([elderConfig.rootDir, process.cwd()]);
         const resolveFromRoot = async (args) => {
-          for (const dir of [elderConfig.rootDir, process.cwd()]) {
+          for (const dir of rootCandidates) {
             try {
               // eslint-disable-next-line no-await-in-loop
               const result = await build.resolve(args.path, {

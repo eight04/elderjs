@@ -78,6 +78,7 @@ const prepareBuilder = ({ elderConfig, replacements }: PrepareBuilderOptions) =>
   const pkg = require(path.resolve(elderConfig.rootDir, './package.json'));
   const initialEntryPoints = getEntries(elderConfig);
   const elderPlugins = getPluginLocations(elderConfig);
+  const src = path.relative(elderConfig.rootDir, elderConfig.srcDir);
 
   async function start(type: BUILD_TYPE, force = false, watch = false): Promise<boolean> {
     if (builders[type] && !force) {
@@ -92,7 +93,7 @@ const prepareBuilder = ({ elderConfig, replacements }: PrepareBuilderOptions) =>
     builders[type] = await build({
       absWorkingDir: elderConfig.rootDir,
       entryPoints: [
-        ...initialEntryPoints.filter((e) => (type === 'ssr' ? true : e.includes('src/components'))),
+        ...initialEntryPoints.filter((e) => (type === 'ssr' ? true : e.includes(`${src}/components`))),
         ...elderPlugins.files,
       ],
       entryNames: `[dir]/[name]${type === 'ssr' ? '' : '.[hash]'}`,
@@ -160,7 +161,6 @@ const esbuildBundler = async ({
   });
   const restartHelper = getRestartHelper(startOrRestartServer);
 
-  // a simpler strategy is to stop server when bundler starts / start the server when bundler stops
   const builder = prepareBuilder({ elderConfig, replacements });
   builder.on('finished', (type, err) => {
     console.warn('build error', err);
