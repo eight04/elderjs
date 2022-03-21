@@ -14,11 +14,7 @@ const $$ejs = (par,eager)=>{
     const compProm = import(prefix + '/svelte/components/' + component.component);
 
     Promise.all([compProm,propProm]).then(([comp,props])=>{
-      new comp.default({ 
-        target: target,
-        props: props,
-        hydrate: true
-      });
+      comp.__ejs_mount(comp, target, props);
     });
   };
   ${

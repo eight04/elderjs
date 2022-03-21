@@ -59,12 +59,8 @@ test(
             "public/_elderjs/assets/style.css",
             "public/_elderjs/svelte/chunks/chunk.XXXXXXXX.js",
             "public/_elderjs/svelte/chunks/chunk.XXXXXXXX.js.map",
-            "public/_elderjs/svelte/components/Bar.XXXXXXXX.css",
-            "public/_elderjs/svelte/components/Bar.XXXXXXXX.css.map",
             "public/_elderjs/svelte/components/Bar.XXXXXXXX.js",
             "public/_elderjs/svelte/components/Bar.XXXXXXXX.js.map",
-            "public/_elderjs/svelte/components/Foo.XXXXXXXX.css",
-            "public/_elderjs/svelte/components/Foo.XXXXXXXX.css.map",
             "public/_elderjs/svelte/components/Foo.XXXXXXXX.js",
             "public/_elderjs/svelte/components/Foo.XXXXXXXX.js.map",
           ]
